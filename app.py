@@ -4,6 +4,10 @@ import os
 
 app = Flask(__name__)
 
+@app.route('/')
+def index():
+    return "TikTok Downloader is running!"
+
 @app.route('/download', methods=['POST'])
 def download():
     data = request.json
