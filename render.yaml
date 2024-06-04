@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: tiktok-downloader
+    env: python
+    buildCommand: ""
+    startCommand: "python app.py"
