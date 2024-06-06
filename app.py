@@ -6,10 +6,12 @@ from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.http import MediaFileUpload
 from google.auth.transport.requests import Request
-
+import logging
 
 app = Flask(__name__)
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
+
+logging.basicConfig(level=logging.INFO)
 
 def upload_to_drive(filename, filepath):
     creds = None
@@ -30,15 +32,17 @@ def upload_to_drive(filename, filepath):
     file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
     return f"File ID: {file.get('id')}"
 
-#確認用
 @app.route('/')
 def index():
     return "Welcome to the TikTok Downloader!"
 
-
 @app.route('/download', methods=['POST'])
 def download_and_upload():
+    logging.info(f"Headers: {request.headers}")
+    logging.info(f"Request data: {request.data}")
     data = request.json
+    logging.info(f"Parsed JSON: {data}")
+    
     url = data['url']
     ydl_opts = {'outtmpl': 'downloaded_video.%(ext)s',}
     try:
@@ -52,4 +56,5 @@ def download_and_upload():
         return jsonify({'status': 'error', 'message': str(e)})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
