@@ -30,6 +30,12 @@ def upload_to_drive(filename, filepath):
     file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
     return f"File ID: {file.get('id')}"
 
+#確認用
+@app.route('/')
+def index():
+    return "Welcome to the TikTok Downloader!"
+
+
 @app.route('/download', methods=['POST'])
 def download_and_upload():
     data = request.json
