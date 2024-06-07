@@ -13,7 +13,7 @@ SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
 logging.basicConfig(level=logging.INFO)
 
-def upload_to_drive(filename, filepath):
+def upload_to_drive(filename, filepath, folder_id):
     creds = None
     if os.path.exists('token.json'):
         creds = Credentials.from_authorized_user_file('token.json', SCOPES)
@@ -27,7 +27,10 @@ def upload_to_drive(filename, filepath):
         with open('token.json', 'w') as token:
             token.write(creds.to_json())
     service = build('drive', 'v3', credentials=creds)
-    file_metadata = {'name': filename}
+    file_metadata = {
+        'name': filename,
+        'parents': [folder_id]
+    }
     media = MediaFileUpload(filepath, mimetype='video/mp4')
     file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
     return f"File ID: {file.get('id')}"
@@ -47,13 +50,14 @@ def download_and_upload():
     else:
         return jsonify({'status': 'error', 'message': 'URL is missing'}), 400
     
+    folder_id = '11wUCoalkVL-PBibU7mJIBtRhcI9Xvwd7'  # Your Google Drive folder ID
     ydl_opts = {'outtmpl': 'downloaded_video.%(ext)s',}
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(url, download=True)
             video_ext = info_dict.get('ext', 'mp4')
             video_file = f'downloaded_video.{video_ext}'
-            file_id = upload_to_drive(video_file, video_file)
+            file_id = upload_to_drive(video_file, video_file, folder_id)
         return jsonify({'status': 'success', 'filePath': video_file, 'driveFileId': file_id})
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)})
