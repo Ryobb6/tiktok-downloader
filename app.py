@@ -14,6 +14,7 @@ SCOPES = ['https://www.googleapis.com/auth/drive.file']
 logging.basicConfig(level=logging.INFO)
 
 def upload_to_drive(filename, filepath, folder_id):
+    logging.info(f"Uploading {filepath} to Google Drive...")
     creds = None
     if os.path.exists('token.json'):
         creds = Credentials.from_authorized_user_file('token.json', SCOPES)
@@ -33,6 +34,7 @@ def upload_to_drive(filename, filepath, folder_id):
     }
     media = MediaFileUpload(filepath, mimetype='video/mp4')
     file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    logging.info(f"File uploaded to Google Drive with ID: {file.get('id')}")
     return f"File ID: {file.get('id')}"
 
 @app.route('/')
@@ -57,6 +59,7 @@ def download_and_upload():
             info_dict = ydl.extract_info(url, download=True)
             video_ext = info_dict.get('ext', 'mp4')
             video_file = f'downloaded_video.{video_ext}'
+            logging.info(f"Downloaded video file path: {video_file}")
             file_id = upload_to_drive(video_file, video_file, folder_id)
         return jsonify({'status': 'success', 'filePath': video_file, 'driveFileId': file_id})
     except Exception as e:
