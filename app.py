@@ -40,10 +40,13 @@ def index():
 def download_and_upload():
     logging.info(f"Headers: {request.headers}")
     logging.info(f"Request data: {request.data}")
-    data = request.json
-    logging.info(f"Parsed JSON: {data}")
+
+    if 'url' in request.form:
+        url = request.form['url']
+        logging.info(f"URL: {url}")
+    else:
+        return jsonify({'status': 'error', 'message': 'URL is missing'}), 400
     
-    url = data['url']
     ydl_opts = {'outtmpl': 'downloaded_video.%(ext)s',}
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
