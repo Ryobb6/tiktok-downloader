@@ -73,6 +73,7 @@ def download_and_upload():
         logging.error(f"Error during download and upload process: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)})
 
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
