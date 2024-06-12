@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import yt_dlp
 import os
+import json
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
@@ -17,9 +18,12 @@ SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
 logging.basicConfig(level=logging.INFO)
 
-# サービスアカウントのキー情報を環境変数から取得
-SERVICE_ACCOUNT_FILE = os.getenv('SERVICE_ACCOUNT_FILE')
-credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+# シークレットファイルからサービスアカウントのJSON情報を読み込む
+SERVICE_ACCOUNT_FILE = '/etc/secrets/service_account.json'
+with open(SERVICE_ACCOUNT_FILE) as f:
+    service_account_info = json.load(f)
+
+credentials = service_account.Credentials.from_service_account_info(service_account_info, scopes=SCOPES)
 
 def upload_to_drive(filename, filepath, folder_id):
     logging.info(f"Uploading {filepath} to Google Drive...")
