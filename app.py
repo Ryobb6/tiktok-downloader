@@ -1,11 +1,9 @@
-from flask import Flask, request, jsonify, redirect, url_for, session
+from flask import Flask, request, jsonify
 import yt_dlp
 import os
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import Flow
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-from google.auth.transport.requests import Request
 import logging
 from dotenv import load_dotenv
 
@@ -19,37 +17,14 @@ SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
 logging.basicConfig(level=logging.INFO)
 
-def get_flow():
-    return Flow.from_client_config(
-        {
-            "web": {
-                "client_id": os.getenv('GOOGLE_CLIENT_ID'),
-                "client_secret": os.getenv('GOOGLE_CLIENT_SECRET'),
-                "redirect_uris": [os.getenv('GOOGLE_REDIRECT_URI')],
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                "token_uri": "https://oauth2.googleapis.com/token"
-            }
-        },
-        scopes=SCOPES,
-        redirect_uri=os.getenv('GOOGLE_REDIRECT_URI')
-    )
+# サービスアカウントのキー情報を環境変数から取得
+SERVICE_ACCOUNT_FILE = os.getenv('SERVICE_ACCOUNT_FILE')
+credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
 
 def upload_to_drive(filename, filepath, folder_id):
     logging.info(f"Uploading {filepath} to Google Drive...")
-    creds = None
     try:
-        if 'credentials' in session:
-            creds = Credentials(**session['credentials'])
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                flow = get_flow()
-                authorization_url, state = flow.authorization_url(access_type='offline', include_granted_scopes='true')
-                session['state'] = state
-                logging.info(f"Redirecting to authorization URL: {authorization_url}")
-                return redirect(authorization_url)  # ユーザーを認証ページにリダイレクト
-        service = build('drive', 'v3', credentials=creds)
+        service = build('drive', 'v3', credentials=credentials)
         file_metadata = {
             'name': filename,
             'parents': [folder_id]
@@ -57,14 +32,10 @@ def upload_to_drive(filename, filepath, folder_id):
         media = MediaFileUpload(filepath, mimetype='video/mp4')
         file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
         logging.info(f"File uploaded to Google Drive with ID: {file.get('id')}")
-        session['credentials'] = creds_to_dict(creds)
         return f"File ID: {file.get('id')}"
     except Exception as e:
         logging.error(f"Failed to upload file to Google Drive: {str(e)}", exc_info=True)
         return None
-
-def creds_to_dict(creds):
-    return {'token': creds.token, 'refresh_token': creds.refresh_token, 'token_uri': creds.token_uri, 'client_id': creds.client_id, 'client_secret': creds.client_secret, 'scopes': creds.scopes}
 
 @app.route('/')
 def index():
@@ -95,23 +66,11 @@ def download_and_upload():
             result = upload_to_drive(f'downloaded_video.{video_ext}', video_file, folder_id)
             if isinstance(result, str):
                 return jsonify({'status': 'success', 'filePath': video_file, 'driveFileId': result})
-            elif isinstance(result, dict) and result.get('status') == 'redirect':
-                return result  # リダイレクトURLを返す
             else:
                 return jsonify({'status': 'error', 'message': 'Failed to upload to Google Drive'})
     except Exception as e:
         logging.error(f"Error during download and upload process: {str(e)}")
         return jsonify({'status': 'error', 'message': str(e)})
-
-@app.route('/oauth2callback')
-def oauth2callback():
-    state = session['state']
-    flow = get_flow()
-    flow.fetch_token(authorization_response=request.url)
-    creds = flow.credentials
-    session['credentials'] = creds_to_dict(creds)
-    logging.info(f"Credentials saved to session: {session['credentials']}")
-    return redirect(url_for('index'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
