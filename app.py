@@ -9,34 +9,32 @@ from google.auth.transport.requests import Request
 import logging
 from dotenv import load_dotenv
 
-# .envファイルから環境変数を読み込む（Renderの環境変数が優先される）
+# .envファイルから環境変数を読み込む
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY')  # 環境変数からシークレットキーを取得
+app.secret_key = os.getenv('SECRET_KEY')
 
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
-# ロギングの設定
 logging.basicConfig(level=logging.INFO)
 
 def get_flow():
-    # Google OAuthの認証フローを取得
     return Flow.from_client_config(
         {
             "web": {
-                "client_id": os.getenv('GOOGLE_CLIENT_ID'),  # 環境変数からクライアントIDを取得
-                "client_secret": os.getenv('GOOGLE_CLIENT_SECRET'),  # 環境変数からクライアントシークレットを取得
-                "redirect_uris": [os.getenv('GOOGLE_REDIRECT_URI')],  # リダイレクトURIを環境変数から取得
-                "auth_uri": "https://accounts.google.com/o/oauth2/auth",  # 認証URI
-                "token_uri": "https://oauth2.googleapis.com/token"  # トークンURI
+                "client_id": os.getenv('GOOGLE_CLIENT_ID'),
+                "client_secret": os.getenv('GOOGLE_CLIENT_SECRET'),
+                "redirect_uris": [os.getenv('GOOGLE_REDIRECT_URI')],
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token"
             }
         },
-        scopes=SCOPES
+        scopes=SCOPES,
+        redirect_uri=os.getenv('GOOGLE_REDIRECT_URI')
     )
 
 def upload_to_drive(filename, filepath, folder_id):
-    # Google Driveにファイルをアップロードする
     logging.info(f"Uploading {filepath} to Google Drive...")
     creds = None
     try:
@@ -50,7 +48,7 @@ def upload_to_drive(filename, filepath, folder_id):
                 authorization_url, state = flow.authorization_url(access_type='offline', include_granted_scopes='true')
                 session['state'] = state
                 logging.info(f"Redirecting to authorization URL: {authorization_url}")
-                return jsonify({'status': 'redirect', 'authorization_url': authorization_url})
+                return redirect(authorization_url)  # ユーザーを認証ページにリダイレクト
         service = build('drive', 'v3', credentials=creds)
         file_metadata = {
             'name': filename,
@@ -66,7 +64,6 @@ def upload_to_drive(filename, filepath, folder_id):
         return None
 
 def creds_to_dict(creds):
-    # クレデンシャルを辞書形式に変換
     return {'token': creds.token, 'refresh_token': creds.refresh_token, 'token_uri': creds.token_uri, 'client_id': creds.client_id, 'client_secret': creds.client_secret, 'scopes': creds.scopes}
 
 @app.route('/')
@@ -84,8 +81,8 @@ def download_and_upload():
     else:
         return jsonify({'status': 'error', 'message': 'URL is missing'}), 400
     
-    folder_id = os.getenv('GOOGLE_DRIVE_FOLDER_ID')  # Google DriveフォルダIDを環境変数から取得
-    download_dir = '/mnt/data'  # Renderのディスクをマウントするディレクトリ
+    folder_id = os.getenv('GOOGLE_DRIVE_FOLDER_ID')
+    download_dir = '/mnt/data'
     os.makedirs(download_dir, exist_ok=True)
     ydl_opts = {'outtmpl': os.path.join(download_dir, 'downloaded_video.%(ext)s')}
     
@@ -99,7 +96,7 @@ def download_and_upload():
             if isinstance(result, str):
                 return jsonify({'status': 'success', 'filePath': video_file, 'driveFileId': result})
             elif isinstance(result, dict) and result.get('status') == 'redirect':
-                return result  # ここでは直接レスポンスを返します
+                return result  # リダイレクトURLを返す
             else:
                 return jsonify({'status': 'error', 'message': 'Failed to upload to Google Drive'})
     except Exception as e:
@@ -108,7 +105,6 @@ def download_and_upload():
 
 @app.route('/oauth2callback')
 def oauth2callback():
-    # Google OAuth2のコールバックエンドポイント
     state = session['state']
     flow = get_flow()
     flow.fetch_token(authorization_response=request.url)
