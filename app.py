@@ -63,12 +63,14 @@ def download_and_upload():
     logging.info(f"Headers: {request.headers}")
     logging.info(f"Request data: {request.data}")
 
-    # リクエストからURLを取得
-    if 'url' in request.form:
+    # リクエストからURLとファイル名を取得
+    if 'url' in request.form and 'name' in request.form:
         url = request.form['url']
+        name = request.form['name']
         logging.info(f"URL: {url}")
+        logging.info(f"File Name: {name}")
     else:
-        return jsonify({'status': 'error', 'message': 'URL is missing'}), 400
+        return jsonify({'status': 'error', 'message': 'URL or name is missing'}), 400
     
     # Google DriveのフォルダIDを環境変数から取得
     folder_id = os.getenv('GOOGLE_DRIVE_FOLDER_ID')
@@ -89,7 +91,7 @@ def download_and_upload():
             logging.info(f"Downloaded video file path: {video_file}")
             
             # Google Driveにアップロード
-            result = upload_to_drive(f'downloaded_video.{video_ext}', video_file, folder_id)
+            result = upload_to_drive(f'{name}.{video_ext}', video_file, folder_id)
             if isinstance(result, str):
                 return jsonify({'status': 'success', 'filePath': video_file, 'driveFileId': result})
             else:
