@@ -46,7 +46,7 @@ def upload_to_drive(filename, filepath, folder_id):
                 flow = get_flow()
                 authorization_url, state = flow.authorization_url(access_type='offline', include_granted_scopes='true')
                 session['state'] = state
-                return redirect(authorization_url)
+                return jsonify({'status': 'redirect', 'authorization_url': authorization_url})
         service = build('drive', 'v3', credentials=creds)
         file_metadata = {
             'name': filename,
@@ -87,9 +87,11 @@ def download_and_upload():
             video_ext = info_dict.get('ext', 'mp4')
             video_file = f'downloaded_video.{video_ext}'
             logging.info(f"Downloaded video file path: {video_file}")
-            file_id = upload_to_drive(video_file, video_file, folder_id)
-            if file_id:
-                return jsonify({'status': 'success', 'filePath': video_file, 'driveFileId': file_id})
+            result = upload_to_drive(video_file, video_file, folder_id)
+            if isinstance(result, str):
+                return jsonify({'status': 'success', 'filePath': video_file, 'driveFileId': result})
+            elif isinstance(result, dict) and result.get('status') == 'redirect':
+                return result  # ここでは直接レスポンスを返します
             else:
                 return jsonify({'status': 'error', 'message': 'Failed to upload to Google Drive'})
     except Exception as e:
