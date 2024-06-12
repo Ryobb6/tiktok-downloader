@@ -84,15 +84,18 @@ def download_and_upload():
     else:
         return jsonify({'status': 'error', 'message': 'URL is missing'}), 400
     
-    folder_id = '11wUCoalkVL-PBibU7mJIBtRhcI9Xvwd7'  # Your Google Drive folder ID
-    ydl_opts = {'outtmpl': 'downloaded_video.%(ext)s',}
+    folder_id = 'YOUR_GOOGLE_DRIVE_FOLDER_ID'  # Google DriveフォルダID
+    download_dir = '/mnt/data'  # Renderのディスクをマウントするディレクトリ
+    os.makedirs(download_dir, exist_ok=True)
+    ydl_opts = {'outtmpl': os.path.join(download_dir, 'downloaded_video.%(ext)s')}
+    
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(url, download=True)
             video_ext = info_dict.get('ext', 'mp4')
-            video_file = f'downloaded_video.{video_ext}'
+            video_file = os.path.join(download_dir, f'downloaded_video.{video_ext}')
             logging.info(f"Downloaded video file path: {video_file}")
-            result = upload_to_drive(video_file, video_file, folder_id)
+            result = upload_to_drive(f'downloaded_video.{video_ext}', video_file, folder_id)
             if isinstance(result, str):
                 return jsonify({'status': 'success', 'filePath': video_file, 'driveFileId': result})
             elif isinstance(result, dict) and result.get('status') == 'redirect':
