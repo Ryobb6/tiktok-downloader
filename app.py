@@ -27,7 +27,7 @@ def get_flow():
             "web": {
                 "client_id": os.getenv('GOOGLE_CLIENT_ID'),  # 環境変数からクライアントIDを取得
                 "client_secret": os.getenv('GOOGLE_CLIENT_SECRET'),  # 環境変数からクライアントシークレットを取得
-                "redirect_uris": [url_for('oauth2callback', _external=True)],  # リダイレクトURI
+                "redirect_uris": [os.getenv('GOOGLE_REDIRECT_URI')],  # リダイレクトURIを環境変数から取得
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",  # 認証URI
                 "token_uri": "https://oauth2.googleapis.com/token"  # トークンURI
             }
@@ -84,7 +84,7 @@ def download_and_upload():
     else:
         return jsonify({'status': 'error', 'message': 'URL is missing'}), 400
     
-    folder_id = 'YOUR_GOOGLE_DRIVE_FOLDER_ID'  # Google DriveフォルダID
+    folder_id = os.getenv('GOOGLE_DRIVE_FOLDER_ID')  # Google DriveフォルダIDを環境変数から取得
     download_dir = '/mnt/data'  # Renderのディスクをマウントするディレクトリ
     os.makedirs(download_dir, exist_ok=True)
     ydl_opts = {'outtmpl': os.path.join(download_dir, 'downloaded_video.%(ext)s')}
