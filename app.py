@@ -17,9 +17,11 @@ app.secret_key = os.getenv('SECRET_KEY')  # 環境変数からシークレット
 
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
+# ロギングの設定
 logging.basicConfig(level=logging.INFO)
 
 def get_flow():
+    # Google OAuthの認証フローを取得
     return Flow.from_client_config(
         {
             "web": {
@@ -34,6 +36,7 @@ def get_flow():
     )
 
 def upload_to_drive(filename, filepath, folder_id):
+    # Google Driveにファイルをアップロードする
     logging.info(f"Uploading {filepath} to Google Drive...")
     creds = None
     try:
@@ -46,6 +49,7 @@ def upload_to_drive(filename, filepath, folder_id):
                 flow = get_flow()
                 authorization_url, state = flow.authorization_url(access_type='offline', include_granted_scopes='true')
                 session['state'] = state
+                logging.info(f"Redirecting to authorization URL: {authorization_url}")
                 return jsonify({'status': 'redirect', 'authorization_url': authorization_url})
         service = build('drive', 'v3', credentials=creds)
         file_metadata = {
@@ -58,10 +62,11 @@ def upload_to_drive(filename, filepath, folder_id):
         session['credentials'] = creds_to_dict(creds)
         return f"File ID: {file.get('id')}"
     except Exception as e:
-        logging.error(f"Failed to upload file to Google Drive: {str(e)}")
+        logging.error(f"Failed to upload file to Google Drive: {str(e)}", exc_info=True)
         return None
 
 def creds_to_dict(creds):
+    # クレデンシャルを辞書形式に変換
     return {'token': creds.token, 'refresh_token': creds.refresh_token, 'token_uri': creds.token_uri, 'client_id': creds.client_id, 'client_secret': creds.client_secret, 'scopes': creds.scopes}
 
 @app.route('/')
@@ -100,12 +105,13 @@ def download_and_upload():
 
 @app.route('/oauth2callback')
 def oauth2callback():
+    # Google OAuth2のコールバックエンドポイント
     state = session['state']
     flow = get_flow()
-    authorization_response = request.url
-    flow.fetch_token(authorization_response=authorization_response)
+    flow.fetch_token(authorization_response=request.url)
     creds = flow.credentials
     session['credentials'] = creds_to_dict(creds)
+    logging.info(f"Credentials saved to session: {session['credentials']}")
     return redirect(url_for('index'))
 
 if __name__ == '__main__':
