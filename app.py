@@ -7,13 +7,31 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.auth.transport.requests import Request
 import logging
+from dotenv import load_dotenv
+
+# .envファイルから環境変数を読み込む（Renderの環境変数が優先される）
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'
+app.secret_key = os.getenv('SECRET_KEY')  # 環境変数からシークレットキーを取得
+
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
-CLIENT_SECRETS_FILE = "credentials.json"
 
 logging.basicConfig(level=logging.INFO)
+
+def get_flow():
+    return Flow.from_client_config(
+        {
+            "web": {
+                "client_id": os.getenv('GOOGLE_CLIENT_ID'),  # 環境変数からクライアントIDを取得
+                "client_secret": os.getenv('GOOGLE_CLIENT_SECRET'),  # 環境変数からクライアントシークレットを取得
+                "redirect_uris": [url_for('oauth2callback', _external=True)],  # リダイレクトURI
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",  # 認証URI
+                "token_uri": "https://oauth2.googleapis.com/token"  # トークンURI
+            }
+        },
+        scopes=SCOPES
+    )
 
 def upload_to_drive(filename, filepath, folder_id):
     logging.info(f"Uploading {filepath} to Google Drive...")
@@ -25,8 +43,7 @@ def upload_to_drive(filename, filepath, folder_id):
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
             else:
-                flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES)
-                flow.redirect_uri = url_for('oauth2callback', _external=True)
+                flow = get_flow()
                 authorization_url, state = flow.authorization_url(access_type='offline', include_granted_scopes='true')
                 session['state'] = state
                 return redirect(authorization_url)
@@ -82,8 +99,7 @@ def download_and_upload():
 @app.route('/oauth2callback')
 def oauth2callback():
     state = session['state']
-    flow = Flow.from_client_secrets_file(CLIENT_SECRETS_FILE, scopes=SCOPES, state=state)
-    flow.redirect_uri = url_for('oauth2callback', _external=True)
+    flow = get_flow()
     authorization_response = request.url
     flow.fetch_token(authorization_response=authorization_response)
     creds = flow.credentials
