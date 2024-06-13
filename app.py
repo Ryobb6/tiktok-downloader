@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify
 import yt_dlp
 import os
 import json
+import uuid
+import shutil
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
@@ -79,27 +81,36 @@ def download_and_upload():
     download_dir = '/mnt/data'
     os.makedirs(download_dir, exist_ok=True)
     
-    # ダウンロードするファイルの一時ファイル名を設定
-    temp_video_file = os.path.join(download_dir, 'downloaded_video.mp4')
+    # 一意のファイル名を生成
+    unique_filename = str(uuid.uuid4())
+    temp_video_file = os.path.join(download_dir, f'{unique_filename}.mp4')
     
     # yt-dlpのオプションを設定
     ydl_opts = {'outtmpl': temp_video_file}
     
     try:
         # 既存の動画ファイルを削除
-        if os.path.exists(temp_video_file):
-            os.remove(temp_video_file)
+        for filename in os.listdir(download_dir):
+            file_path = os.path.join(download_dir, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                logging.error(f'Failed to delete {file_path}. Reason: {e}')
         
         # TikTok動画をダウンロード
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(url, download=True)
             video_ext = info_dict.get('ext', 'mp4')
-            logging.info(f"Downloaded video file path: {temp_video_file}")
+            video_file = temp_video_file
+            logging.info(f"Downloaded video file path: {video_file}")
             
             # Google Driveにアップロード
-            result = upload_to_drive(f'{name}.{video_ext}', temp_video_file, folder_id)
+            result = upload_to_drive(f'{name}.{video_ext}', video_file, folder_id)
             if isinstance(result, str):
-                return jsonify({'status': 'success', 'filePath': temp_video_file, 'driveFileId': result})
+                return jsonify({'status': 'success', 'filePath': video_file, 'driveFileId': result})
             else:
                 return jsonify({'status': 'error', 'message': 'Failed to upload to Google Drive'})
     except Exception as e:
