@@ -42,7 +42,7 @@ def upload_to_drive(filename, filepath, folder_id):
             'name': filename,
             'parents': [folder_id]  # アップロード先のフォルダIDを指定
         }
-        media = MediaFileUpload(filepath, mimetype='video/mp4')  # アップロードするファイルのメタデータを設定
+        media = MediaFileUpload(filepath)  # アップロードするファイルのメタデータを設定
         file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
         logging.info(f"File uploaded to Google Drive with ID: {file.get('id')}")
         return f"File ID: {file.get('id')}"
@@ -106,6 +106,11 @@ def download_and_upload():
             video_ext = info_dict.get('ext', 'mp4')
             video_file = temp_video_file
             logging.info(f"Downloaded video file path: {video_file}")
+            
+            # 動画ファイルの拡張子を確認
+            if not os.path.exists(video_file) and os.path.exists(f'{temp_video_file}.webm'):
+                video_file = f'{temp_video_file}.webm'
+                video_ext = 'webm'
             
             # Google Driveにアップロード
             result = upload_to_drive(f'{name}.{video_ext}', video_file, folder_id)
